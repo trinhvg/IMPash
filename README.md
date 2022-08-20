@@ -5,7 +5,7 @@ Implementation of paper:
 "IMPaSh: A Novel Domain-shift Resistant Representation for Colorectal Cancer Tissue Classification"
 by Trinh Thi Le Vuong, Quoc Dang Vu, Mostafa Jahanifar, Simon Graham, Jin Tae Kwak, and Nasir Rajpoot.
 
-(Will be available at ECCVW2022)
+(Will be available at ECCV Workshop 2022)
 
 Note: The clearn version will be release later.
 ```
