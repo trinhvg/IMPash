@@ -7,7 +7,7 @@ by Trinh Thi Le Vuong, Quoc Dang Vu, Mostafa Jahanifar, Simon Graham, Jin Tae Kw
 
 (Will be available at ECCV Workshop 2022)
 
-Note: The clearn version will be release later.
+Note: The clean version will be release later.
 ```
 
 ```
