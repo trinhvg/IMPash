@@ -15,6 +15,12 @@ Note: The clean version will be release later.
   <img src="figures/Network.png" width="600">
 </p>
 
+### Model Weights
+
+IMPaSh's encoder and classifier weights:
+- [Encoder checkpoint](https://drive.google.com/file/d/1yG4aHhz0FcLXhECSmXh4WT-HuOCv_TCE/view?usp=sharing)
+- [Classifier checkpoint](https://drive.google.com/file/d/1oJlVY3LglhWx5q7ahsuA70s0vu12m7-O/view?usp=share_link)
+
 
 ## Snippet of PatchShuffling Module
 ```python
