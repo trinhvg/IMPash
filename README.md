@@ -18,8 +18,8 @@ Note: The clean version will be release later.
 ### Model Weights
 
 IMPaSh's encoder and classifier weights:
-- [Encoder checkpoint](https://drive.google.com/file/d/1yG4aHhz0FcLXhECSmXh4WT-HuOCv_TCE/view?usp=sharing)
-- [Classifier checkpoint](https://drive.google.com/file/d/1oJlVY3LglhWx5q7ahsuA70s0vu12m7-O/view?usp=share_link)
+- [Encoder checkpoint](https://drive.google.com/file/d/1rbJ6DB27xbkDPBdmwlzM0q2pURpdYVq7/view?usp=sharing)
+- [Classifier checkpoint](https://drive.google.com/file/d/1OLka_5mba6vimUBvfzKLvIOMnp6Yfb__/view?usp=drive_link)
 
 
 ## Snippet of PatchShuffling Module
