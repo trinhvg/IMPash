@@ -67,7 +67,7 @@ class PatchShuffling(object):
 ## Train the self-supervised encoder and Options
  
 ```
-python main_contrast_Jig.py \
+python main_contrast.py \
   --method IMPaShMoCo \
   --jigsaw_stitch\
   --cosine \
@@ -81,7 +81,7 @@ python main_contrast_Jig.py \
 ## Train the classifier and Options
 
 ```
-python main_linear_9sra.py \
+python main_linear.py \
  --method PatchSMoco \
  --ckpt ./save/k19_IMPaSH/ckpt_epoch_200.pth\
  --aug_linear RA \
