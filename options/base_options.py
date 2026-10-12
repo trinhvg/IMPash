@@ -10,36 +10,46 @@ class BaseOptions(object):
         self.parser = None
         self.opt = None
         # config for predefined method
+        # self.override_dict = {
+        #     'InsDis':  ['RGB', False, 'bank', 'A', 'linear', 0.07],
+        #     'CMC':     ['CMC', False, 'bank', 'C', 'linear', 0.07],
+        #     'MoCo':    ['RGB', False, 'moco', 'A', 'linear', 0.07],
+        #     'PIRL':    ['RGB', True,  'bank', 'A', 'linear', 0.07],
+        #     'MoCov2':  ['RGB', False, 'moco', 'B', 'mlp',    0.2],
+        #     'CMCv2':   ['CMC', False, 'moco', 'E', 'mlp',    0.2],
+        #     'InfoMin': ['RGB', True,  'moco', 'D', 'mlp',    0.15],
+        # }
+
         self.override_dict = {
-            'InsDis':       ['RGB', False, 'bank', 'A', 'linear', 0.07],
-            'CMC':          ['CMC', False, 'bank', 'C', 'linear', 0.07],
-            'MoCo':         ['RGB', False, 'moco', 'A', 'linear', 0.07],
-            'PIRL':         ['RGB', True,  'bank', 'A', 'linear', 0.07],
-            'PatchSMem':    ['RGB', True,  'bank', 'A', 'linear', 0.07],
-            'PatchS':       ['RGB', True,  'bank', 'A', 'linear', 0.07],
-            'MoCov2':       ['RGB', False, 'moco', 'B', 'mlp',    0.2],
-            'CMCv2':        ['CMC', False, 'moco', 'E', 'mlp',    0.2],
-            'InfoMin':      ['RGB', False,  'moco', 'D', 'mlp',    0.15],
-            'InfoMinNoJig': ['RGB', False,  'moco', 'D', 'mlp',    0.15],
-            'PatchSMoco':   ['RGB', False,  'moco', 'D', 'mlp',    0.15],
+            # name          im_type jigsaw  mem     aug  head    nce_t JigStick
+            'InsDis':       ['RGB', False, 'bank', 'A', 'linear', 0.07, False],
+            'CMC':          ['CMC', False, 'bank', 'C', 'linear', 0.07, False],
+            'MoCo':         ['RGB', False, 'moco', 'A', 'linear', 0.07, False],
+            'PIRL':         ['RGB', True,  'bank', 'A', 'linear', 0.07, False],
+            'PatchSMem':    ['RGB', True,  'bank', 'A', 'linear', 0.07, False],
+            'PatchS':       ['RGB', True,  'bank', 'A', 'linear', 0.07, False],
+            'MoCov2':       ['RGB', False, 'moco', 'B', 'mlp',    0.2,  False],
+            'CMCv2':        ['CMC', False, 'moco', 'E', 'mlp',    0.2,  False],
+            'InfoMin':      ['RGB', True,  'moco', 'D', 'mlp',    0.15, False],
+            'InfoMinNoJig': ['RGB', False,  'moco', 'D', 'mlp',    0.15, False],
+            'PatchSMoco':   ['RGB', False,  'moco', 'D', 'mlp',    0.15, False],
+            'impash':       ['RGB', True,  'moco', 'D', 'mlp',    0.15, True],
+            'aug_impash':       ['RGB', True,  'moco', 'DS', 'mlp',    0.15, True],
+            'impash_mosaic':       ['RGB', True,  'moco', 'D', 'mlp',    0.15, True],
+            'impash_resize':       ['RGB', True,  'moco', 'D', 'mlp',    0.15, True],
+            'strong_impash':       ['RGB', True,  'moco', 'S', 'mlp',    0.15, True],
         }
 
     def initialize(self, parser):
         # specify folder
-        parser.add_argument('--data_folder', type=str, default='/data1/trinh/data/raw_data/Domain_Invariance/colon_class/example/',
-                            help='path to data')
+        parser.add_argument('--data_folder', type=str, default='/data2/trinh/data/raw_data/Domain_Invariance/colon_class/',
+                            help='unused: dataset roots are set in datasets/histo_data.py')
         parser.add_argument('--dataset_name', type=str, default='k16',
                             help='path to save model')
-        # parser.add_argument('--model_path', type=str, default='./save_40',
-        #                     help='path to save model')
-        # parser.add_argument('--tb_path', type=str, default='./tb_40',
-        #                     help='path to tensorboard')
         parser.add_argument('--model_path', type=str, default='./save_dump',
                             help='path to save model')
         parser.add_argument('--tb_path', type=str, default='./tb_dump',
                             help='path to tensorboard')
-        # parser.add_argument('--tb_path', type=str, default='./tb',
-        #                     help='path to tensorboard')
 
 
         # basics
@@ -53,7 +63,7 @@ class BaseOptions(object):
                             help='batch_size_infer')
         parser.add_argument('--image_size', type=int, default=224,
                             help='image_size')
-        parser.add_argument('-j', '--num_workers', type=int, default=40,
+        parser.add_argument('-j', '--num_workers', type=int, default=64, #new from 64 to 128
                             help='num of workers to use')
 
         # optimization
@@ -74,11 +84,13 @@ class BaseOptions(object):
 
         # method selection
         parser.add_argument('--method', default='Customize', type=str,
-                            choices=['InsDis', 'CMC', 'CMCv2', 'MoCo', 'MoCov2',
-                                     'PIRL', 'InfoMin', 'Customize','PatchS', 'PatchSMem', 'PatchSMoco'],
                             help='Choose predefined method. Configs will be override '
                                  'for all methods except for `Customize`, which allows '
                                  'for user-defined combination of methods')
+        # 'InsDis', 'CMC', 'CMCv2', 'MoCo', 'MoCov2',
+        #                                      'PIRL', 'InfoMin', 'Customize','PatchS', 'PatchSMem', 'PatchSMoco',
+        #                                      'impash_resize', 'impash_mosaic', 'impash'
+
         # method configuration
         parser.add_argument('--modal', default='RGB', type=str, choices=['RGB', 'CMC'],
                             help='single RGB modal, or two modalities in CMC')

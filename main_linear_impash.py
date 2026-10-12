@@ -1,22 +1,26 @@
 """
-DDP training for Linear Probing
+Linear classifier f on top of the frozen IMPaSh encoder (DDP).
+
+The paper classifier uses --keephead head: f is Linear(128 -> 9) on the
+L2-normalised output of projector p1. See README.md ("IMPaSh configuration").
 """
-
-
 from __future__ import print_function
-import os
-# os.environ["CUDA_VISIBLE_DEVICES"]="4,5"
 
 import torch
 import torch.nn as nn
 import torch.multiprocessing as mp
-import numpy as np
 
 from options.test_options import TestOptions
 from learning.linear_trainer import LinearTrainer
 from networks.build_backbone import build_model
 from networks.build_linear import build_linear, build_linear_head, build_linear_jigsaw
 from datasets.util import build_linear_loader, build_linear_stain_aug_loader
+
+
+# share DataLoader batches through files in /dev/shm instead of passing file descriptors;
+# the default 'file_descriptor' strategy intermittently fails with 'Bad file descriptor' on this server
+mp.set_sharing_strategy('file_system')
+
 
 def main():
     args = TestOptions().parse()
@@ -31,7 +35,6 @@ def main():
         raise NotImplementedError('Currently only DDP training')
 
 
-
 def main_worker(gpu, ngpus_per_node, args):
 
     # initialize trainer and ddp environment
@@ -42,16 +45,12 @@ def main_worker(gpu, ngpus_per_node, args):
     model, _ = build_model(args)
     if args.keephead == 'head':
         classifier = build_linear_head(args)
-        print(args.keephead == 'head')
-        print(classifier)
     elif args.keephead == 'jigsaw':
         classifier = build_linear_jigsaw(args)
     else:
-
         classifier = build_linear(args)
-        print('args.keephead' == 'None')
-        print(classifier)
-
+    print('args.keephead: ', args.keephead)
+    print(classifier)
 
     # build dataset
     if args.colorAug:
@@ -60,9 +59,6 @@ def main_worker(gpu, ngpus_per_node, args):
     else:
         train_dataset, train_loader, val_loader, train_sampler = \
             build_linear_loader(args, ngpus_per_node)
-
-    # show_augment(train_dataset, 0)
-
 
     # build criterion and optimizer
     criterion = nn.CrossEntropyLoss().cuda()
@@ -77,7 +73,6 @@ def main_worker(gpu, ngpus_per_node, args):
                                     lr=args.learning_rate,
                                     momentum=args.momentum,
                                     weight_decay=args.weight_decay)
-
 
     # load pre-trained ckpt for encoder
     model = trainer.load_encoder_weights_all(model)
@@ -101,9 +96,8 @@ def main_worker(gpu, ngpus_per_node, args):
         outs = trainer.train(epoch, train_loader, model, classifier,
                              criterion, optimizer)
 
-        # log to tensorbard
+        # log to tensorboard
         trainer.logging(epoch, outs, optimizer.param_groups[0]['lr'], train=True)
-
 
         # evaluation and logging
         if args.rank % ngpus_per_node == 0:

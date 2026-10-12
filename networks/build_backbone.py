@@ -35,6 +35,7 @@ class RGBSingleHead(nn.Module):
 
     @staticmethod
     def _parse_width(name):
+
         if name.endswith('x4'):
             return name[:-2], 4
         elif name.endswith('x2'):
@@ -113,33 +114,6 @@ class RGBMultiHeadsStitch(RGBSingleHead):
             feat = self.encoder(x)
             return feat
 
-class RGBMultiHeadsStitch_V0(RGBSingleHead):
-    """RGB model with Multiple linear/mlp projection heads"""
-    def __init__(self, name='resnet50', head='linear', feat_dim=128, pretrained=False):
-        super(RGBMultiHeadsStitch_V0, self).__init__(name, head, feat_dim, pretrained)
-
-        self.head_jig = nn.Sequential(
-                            nn.Linear(self.dim_in, self.dim_in),
-                            nn.ReLU(inplace=True),
-                            nn.Linear(self.dim_in, feat_dim),
-                            Normalize(2)
-                        )
-
-    def forward(self, x, x_jig=None, mode=0):
-        # mode --
-        # 0: normal encoder,
-        # 1: momentum encoder,
-        # 2: testing mode
-        if mode == 0:
-            feat = self.head(self.encoder(x))
-            feat_jig = self.head_jig(self.encoder(x_jig))
-            return feat, feat_jig
-        elif mode == 1:
-            feat = self.head(self.encoder(x))
-            return feat
-        else:
-            feat = self.encoder(x)
-            return feat
 
 class CMCSingleHead(nn.Module):
     """CMC model with a single linear/mlp projection head"""
@@ -181,6 +155,7 @@ class CMCSingleHead(nn.Module):
 
     @staticmethod
     def _parse_width(name):
+
         if name.endswith('x4'):
             return name[:-2], 2
         elif name.endswith('x2'):
@@ -263,7 +238,6 @@ def build_model(opt):
         branch = 'Sin'
     model_key = opt.modal + branch
 
-    # def __init__(self, name='resnet50', head='linear', feat_dim=128):
     model = NAME_TO_FUNC[model_key](opt.arch, opt.head, opt.feat_dim, opt.preImageNet)
     if opt.mem == 'moco':
         model_ema = NAME_TO_FUNC[model_key](opt.arch, opt.head, opt.feat_dim)
@@ -271,4 +245,3 @@ def build_model(opt):
         model_ema = None
 
     return model, model_ema
-

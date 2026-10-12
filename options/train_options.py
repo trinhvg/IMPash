@@ -66,10 +66,3 @@ class TrainOptions(BaseOptions):
             os.makedirs(opt.tb_folder)
 
         return opt
-
-# cat fsck-script
-#
-# for i in {184280..188280}
-#   do
-#   sudo e2fsck -yb 32768 /dev/sdd2 2> /dev/null | tail -10 | grep inode | tail -1
-# done

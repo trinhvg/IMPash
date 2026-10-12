@@ -30,7 +30,6 @@ class LinearTrainer(BaseTrainer):
         if args.rank == 0:
             pre = 'train_' if train else 'test_'
             self.logger.log_value(pre + 'acc', logs[0], epoch)
-            # self.logger.log_value(pre+'acc5', logs[1], epoch)
             self.logger.log_value(pre + 'loss', logs[1], epoch)
             if train and (lr is not None):
                 self.logger.log_value('learning_rate', lr, epoch)
@@ -82,12 +81,6 @@ class LinearTrainer(BaseTrainer):
         if args.ckpt:
             ckpt = torch.load(args.ckpt, map_location='cpu')
 
-            # ckpt = torch.load('./save/k19_ImageNet_finetune_RA_0.2/model_current.pth', map_location='cpu')
-            # a = {}
-            # for name, param in model.named_parameters():
-            #     if param.requires_grad:
-            #         a[name] = param.data
-            # a['encoder.conv1.weight'] - ckpt['model']['module.encoder.conv1.weight']
             state_dict = ckpt['model']
             if args.modal == 'RGB':
                 # Unimodal (RGB) case
@@ -132,38 +125,7 @@ class LinearTrainer(BaseTrainer):
         if args.ckpt:
             ckpt = torch.load(args.ckpt, map_location='cpu')
 
-            # ckpt = torch.load('./save/k19_ImageNet_finetune_RA_0.2/model_current.pth', map_location='cpu')
-            # a = {}
-            # for name, param in model.named_parameters():
-            #     if param.requires_grad:
-            #         a[name] = param.data
-            # a['encoder.conv1.weight'] - ckpt['model']['module.encoder.conv1.weight']
-            # 'module.head.0.weight', 'module.head.0.bias', 'module.head.2.weight', 'module.head.2.bias'
-            # ckpt['model'].keys()
-            # odict_keys(['module.encoder.conv1.weight', 'module.encoder.bn1.weight', 'module.encoder.bn1.bias', 'module.encoder.bn1.running_mean', 'module.encoder.bn1.running_var', 'module.encoder.bn1.num_batches_tracked', 'module.encoder.layer1.0.conv1.weight', 'module.encoder.layer1.0.bn1.weight', 'module.encoder.layer1.0.bn1.bias', 'module.encoder.layer1.0.bn1.running_mean', 'module.encoder.layer1.0.bn1.running_var', 'module.encoder.layer1.0.bn1.num_batches_tracked', 'module.encoder.layer1.0.conv2.weight', 'module.encoder.layer1.0.bn2.weight', 'module.encoder.layer1.0.bn2.bias', 'module.encoder.layer1.0.bn2.running_mean', 'module.encoder.layer1.0.bn2.running_var', 'module.encoder.layer1.0.bn2.num_batches_tracked', 'module.encoder.layer1.0.conv3.weight', 'module.encoder.layer1.0.bn3.weight', 'module.encoder.layer1.0.bn3.bias', 'module.encoder.layer1.0.bn3.running_mean', 'module.encoder.layer1.0.bn3.running_var', 'module.encoder.layer1.0.bn3.num_batches_tracked', 'module.encoder.layer1.0.downsample.0.weight', 'module.encoder.layer1.0.downsample.1.weight', 'module.encoder.layer1.0.downsample.1.bias', 'module.encoder.layer1.0.downsample.1.running_mean', 'module.encoder.layer1.0.downsample.1.running_var', 'module.encoder.layer1.0.downsample.1.num_batches_tracked', 'module.encoder.layer1.1.conv1.weight', 'module.encoder.layer1.1.bn1.weight', 'module.encoder.layer1.1.bn1.bias', 'module.encoder.layer1.1.bn1.running_mean', 'module.encoder.layer1.1.bn1.running_var', 'module.encoder.layer1.1.bn1.num_batches_tracked', 'module.encoder.layer1.1.conv2.weight', 'module.encoder.layer1.1.bn2.weight', 'module.encoder.layer1.1.bn2.bias', 'module.encoder.layer1.1.bn2.running_mean', 'module.encoder.layer1.1.bn2.running_var', 'module.encoder.layer1.1.bn2.num_batches_tracked', 'module.encoder.layer1.1.conv3.weight', 'module.encoder.layer1.1.bn3.weight', 'module.encoder.layer1.1.bn3.bias', 'module.encoder.layer1.1.bn3.running_mean', 'module.encoder.layer1.1.bn3.running_var', 'module.encoder.layer1.1.bn3.num_batches_tracked', 'module.encoder.layer1.2.conv1.weight', 'module.encoder.layer1.2.bn1.weight', 'module.encoder.layer1.2.bn1.bias', 'module.encoder.layer1.2.bn1.running_mean', 'module.encoder.layer1.2.bn1.running_var', 'module.encoder.layer1.2.bn1.num_batches_tracked', 'module.encoder.layer1.2.conv2.weight', 'module.encoder.layer1.2.bn2.weight', 'module.encoder.layer1.2.bn2.bias', 'module.encoder.layer1.2.bn2.running_mean', 'module.encoder.layer1.2.bn2.running_var', 'module.encoder.layer1.2.bn2.num_batches_tracked', 'module.encoder.layer1.2.conv3.weight', 'module.encoder.layer1.2.bn3.weight', 'module.encoder.layer1.2.bn3.bias', 'module.encoder.layer1.2.bn3.running_mean', 'module.encoder.layer1.2.bn3.running_var', 'module.encoder.layer1.2.bn3.num_batches_tracked', 'module.encoder.layer2.0.conv1.weight', 'module.encoder.layer2.0.bn1.weight', 'module.encoder.layer2.0.bn1.bias', 'module.encoder.layer2.0.bn1.running_mean', 'module.encoder.layer2.0.bn1.running_var', 'module.encoder.layer2.0.bn1.num_batches_tracked', 'module.encoder.layer2.0.conv2.weight', 'module.encoder.layer2.0.bn2.weight', 'module.encoder.layer2.0.bn2.bias', 'module.encoder.layer2.0.bn2.running_mean', 'module.encoder.layer2.0.bn2.running_var', 'module.encoder.layer2.0.bn2.num_batches_tracked', 'module.encoder.layer2.0.conv3.weight', 'module.encoder.layer2.0.bn3.weight', 'module.encoder.layer2.0.bn3.bias', 'module.encoder.layer2.0.bn3.running_mean', 'module.encoder.layer2.0.bn3.running_var', 'module.encoder.layer2.0.bn3.num_batches_tracked', 'module.encoder.layer2.0.downsample.0.weight', 'module.encoder.layer2.0.downsample.1.weight', 'module.encoder.layer2.0.downsample.1.bias', 'module.encoder.layer2.0.downsample.1.running_mean', 'module.encoder.layer2.0.downsample.1.running_var', 'module.encoder.layer2.0.downsample.1.num_batches_tracked', 'module.encoder.layer2.1.conv1.weight', 'module.encoder.layer2.1.bn1.weight', 'module.encoder.layer2.1.bn1.bias', 'module.encoder.layer2.1.bn1.running_mean', 'module.encoder.layer2.1.bn1.running_var', 'module.encoder.layer2.1.bn1.num_batches_tracked', 'module.encoder.layer2.1.conv2.weight', 'module.encoder.layer2.1.bn2.weight', 'module.encoder.layer2.1.bn2.bias', 'module.encoder.layer2.1.bn2.running_mean', 'module.encoder.layer2.1.bn2.running_var', 'module.encoder.layer2.1.bn2.num_batches_tracked', 'module.encoder.layer2.1.conv3.weight', 'module.encoder.layer2.1.bn3.weight', 'module.encoder.layer2.1.bn3.bias', 'module.encoder.layer2.1.bn3.running_mean', 'module.encoder.layer2.1.bn3.running_var', 'module.encoder.layer2.1.bn3.num_batches_tracked', 'module.encoder.layer2.2.conv1.weight', 'module.encoder.layer2.2.bn1.weight', 'module.encoder.layer2.2.bn1.bias', 'module.encoder.layer2.2.bn1.running_mean', 'module.encoder.layer2.2.bn1.running_var', 'module.encoder.layer2.2.bn1.num_batches_tracked', 'module.encoder.layer2.2.conv2.weight', 'module.encoder.layer2.2.bn2.weight', 'module.encoder.layer2.2.bn2.bias', 'module.encoder.layer2.2.bn2.running_mean', 'module.encoder.layer2.2.bn2.running_var', 'module.encoder.layer2.2.bn2.num_batches_tracked', 'module.encoder.layer2.2.conv3.weight', 'module.encoder.layer2.2.bn3.weight', 'module.encoder.layer2.2.bn3.bias', 'module.encoder.layer2.2.bn3.running_mean', 'module.encoder.layer2.2.bn3.running_var', 'module.encoder.layer2.2.bn3.num_batches_tracked', 'module.encoder.layer2.3.conv1.weight', 'module.encoder.layer2.3.bn1.weight', 'module.encoder.layer2.3.bn1.bias', 'module.encoder.layer2.3.bn1.running_mean', 'module.encoder.layer2.3.bn1.running_var', 'module.encoder.layer2.3.bn1.num_batches_tracked', 'module.encoder.layer2.3.conv2.weight', 'module.encoder.layer2.3.bn2.weight', 'module.encoder.layer2.3.bn2.bias', 'module.encoder.layer2.3.bn2.running_mean', 'module.encoder.layer2.3.bn2.running_var', 'module.encoder.layer2.3.bn2.num_batches_tracked', 'module.encoder.layer2.3.conv3.weight', 'module.encoder.layer2.3.bn3.weight', 'module.encoder.layer2.3.bn3.bias', 'module.encoder.layer2.3.bn3.running_mean', 'module.encoder.layer2.3.bn3.running_var', 'module.encoder.layer2.3.bn3.num_batches_tracked', 'module.encoder.layer3.0.conv1.weight', 'module.encoder.layer3.0.bn1.weight', 'module.encoder.layer3.0.bn1.bias', 'module.encoder.layer3.0.bn1.running_mean', 'module.encoder.layer3.0.bn1.running_var', 'module.encoder.layer3.0.bn1.num_batches_tracked', 'module.encoder.layer3.0.conv2.weight', 'module.encoder.layer3.0.bn2.weight', 'module.encoder.layer3.0.bn2.bias', 'module.encoder.layer3.0.bn2.running_mean', 'module.encoder.layer3.0.bn2.running_var', 'module.encoder.layer3.0.bn2.num_batches_tracked', 'module.encoder.layer3.0.conv3.weight', 'module.encoder.layer3.0.bn3.weight', 'module.encoder.layer3.0.bn3.bias', 'module.encoder.layer3.0.bn3.running_mean', 'module.encoder.layer3.0.bn3.running_var', 'module.encoder.layer3.0.bn3.num_batches_tracked', 'module.encoder.layer3.0.downsample.0.weight', 'module.encoder.layer3.0.downsample.1.weight', 'module.encoder.layer3.0.downsample.1.bias', 'module.encoder.layer3.0.downsample.1.running_mean', 'module.encoder.layer3.0.downsample.1.running_var', 'module.encoder.layer3.0.downsample.1.num_batches_tracked', 'module.encoder.layer3.1.conv1.weight', 'module.encoder.layer3.1.bn1.weight', 'module.encoder.layer3.1.bn1.bias', 'module.encoder.layer3.1.bn1.running_mean', 'module.encoder.layer3.1.bn1.running_var', 'module.encoder.layer3.1.bn1.num_batches_tracked', 'module.encoder.layer3.1.conv2.weight', 'module.encoder.layer3.1.bn2.weight', 'module.encoder.layer3.1.bn2.bias', 'module.encoder.layer3.1.bn2.running_mean', 'module.encoder.layer3.1.bn2.running_var', 'module.encoder.layer3.1.bn2.num_batches_tracked', 'module.encoder.layer3.1.conv3.weight', 'module.encoder.layer3.1.bn3.weight', 'module.encoder.layer3.1.bn3.bias', 'module.encoder.layer3.1.bn3.running_mean', 'module.encoder.layer3.1.bn3.running_var', 'module.encoder.layer3.1.bn3.num_batches_tracked', 'module.encoder.layer3.2.conv1.weight', 'module.encoder.layer3.2.bn1.weight', 'module.encoder.layer3.2.bn1.bias', 'module.encoder.layer3.2.bn1.running_mean', 'module.encoder.layer3.2.bn1.running_var', 'module.encoder.layer3.2.bn1.num_batches_tracked', 'module.encoder.layer3.2.conv2.weight', 'module.encoder.layer3.2.bn2.weight', 'module.encoder.layer3.2.bn2.bias', 'module.encoder.layer3.2.bn2.running_mean', 'module.encoder.layer3.2.bn2.running_var', 'module.encoder.layer3.2.bn2.num_batches_tracked', 'module.encoder.layer3.2.conv3.weight', 'module.encoder.layer3.2.bn3.weight', 'module.encoder.layer3.2.bn3.bias', 'module.encoder.layer3.2.bn3.running_mean', 'module.encoder.layer3.2.bn3.running_var', 'module.encoder.layer3.2.bn3.num_batches_tracked', 'module.encoder.layer3.3.conv1.weight', 'module.encoder.layer3.3.bn1.weight', 'module.encoder.layer3.3.bn1.bias', 'module.encoder.layer3.3.bn1.running_mean', 'module.encoder.layer3.3.bn1.running_var', 'module.encoder.layer3.3.bn1.num_batches_tracked', 'module.encoder.layer3.3.conv2.weight', 'module.encoder.layer3.3.bn2.weight', 'module.encoder.layer3.3.bn2.bias', 'module.encoder.layer3.3.bn2.running_mean', 'module.encoder.layer3.3.bn2.running_var', 'module.encoder.layer3.3.bn2.num_batches_tracked', 'module.encoder.layer3.3.conv3.weight', 'module.encoder.layer3.3.bn3.weight', 'module.encoder.layer3.3.bn3.bias', 'module.encoder.layer3.3.bn3.running_mean', 'module.encoder.layer3.3.bn3.running_var', 'module.encoder.layer3.3.bn3.num_batches_tracked', 'module.encoder.layer3.4.conv1.weight', 'module.encoder.layer3.4.bn1.weight', 'module.encoder.layer3.4.bn1.bias', 'module.encoder.layer3.4.bn1.running_mean', 'module.encoder.layer3.4.bn1.running_var', 'module.encoder.layer3.4.bn1.num_batches_tracked', 'module.encoder.layer3.4.conv2.weight', 'module.encoder.layer3.4.bn2.weight', 'module.encoder.layer3.4.bn2.bias', 'module.encoder.layer3.4.bn2.running_mean', 'module.encoder.layer3.4.bn2.running_var', 'module.encoder.layer3.4.bn2.num_batches_tracked', 'module.encoder.layer3.4.conv3.weight', 'module.encoder.layer3.4.bn3.weight', 'module.encoder.layer3.4.bn3.bias', 'module.encoder.layer3.4.bn3.running_mean', 'module.encoder.layer3.4.bn3.running_var', 'module.encoder.layer3.4.bn3.num_batches_tracked', 'module.encoder.layer3.5.conv1.weight', 'module.encoder.layer3.5.bn1.weight', 'module.encoder.layer3.5.bn1.bias', 'module.encoder.layer3.5.bn1.running_mean', 'module.encoder.layer3.5.bn1.running_var', 'module.encoder.layer3.5.bn1.num_batches_tracked', 'module.encoder.layer3.5.conv2.weight', 'module.encoder.layer3.5.bn2.weight', 'module.encoder.layer3.5.bn2.bias', 'module.encoder.layer3.5.bn2.running_mean', 'module.encoder.layer3.5.bn2.running_var', 'module.encoder.layer3.5.bn2.num_batches_tracked', 'module.encoder.layer3.5.conv3.weight', 'module.encoder.layer3.5.bn3.weight', 'module.encoder.layer3.5.bn3.bias', 'module.encoder.layer3.5.bn3.running_mean', 'module.encoder.layer3.5.bn3.running_var', 'module.encoder.layer3.5.bn3.num_batches_tracked', 'module.encoder.layer4.0.conv1.weight', 'module.encoder.layer4.0.bn1.weight', 'module.encoder.layer4.0.bn1.bias', 'module.encoder.layer4.0.bn1.running_mean', 'module.encoder.layer4.0.bn1.running_var', 'module.encoder.layer4.0.bn1.num_batches_tracked', 'module.encoder.layer4.0.conv2.weight', 'module.encoder.layer4.0.bn2.weight', 'module.encoder.layer4.0.bn2.bias', 'module.encoder.layer4.0.bn2.running_mean', 'module.encoder.layer4.0.bn2.running_var', 'module.encoder.layer4.0.bn2.num_batches_tracked', 'module.encoder.layer4.0.conv3.weight', 'module.encoder.layer4.0.bn3.weight', 'module.encoder.layer4.0.bn3.bias', 'module.encoder.layer4.0.bn3.running_mean', 'module.encoder.layer4.0.bn3.running_var', 'module.encoder.layer4.0.bn3.num_batches_tracked', 'module.encoder.layer4.0.downsample.0.weight', 'module.encoder.layer4.0.downsample.1.weight', 'module.encoder.layer4.0.downsample.1.bias', 'module.encoder.layer4.0.downsample.1.running_mean', 'module.encoder.layer4.0.downsample.1.running_var', 'module.encoder.layer4.0.downsample.1.num_batches_tracked', 'module.encoder.layer4.1.conv1.weight', 'module.encoder.layer4.1.bn1.weight', 'module.encoder.layer4.1.bn1.bias', 'module.encoder.layer4.1.bn1.running_mean', 'module.encoder.layer4.1.bn1.running_var', 'module.encoder.layer4.1.bn1.num_batches_tracked', 'module.encoder.layer4.1.conv2.weight', 'module.encoder.layer4.1.bn2.weight', 'module.encoder.layer4.1.bn2.bias', 'module.encoder.layer4.1.bn2.running_mean', 'module.encoder.layer4.1.bn2.running_var', 'module.encoder.layer4.1.bn2.num_batches_tracked', 'module.encoder.layer4.1.conv3.weight', 'module.encoder.layer4.1.bn3.weight', 'module.encoder.layer4.1.bn3.bias', 'module.encoder.layer4.1.bn3.running_mean', 'module.encoder.layer4.1.bn3.running_var', 'module.encoder.layer4.1.bn3.num_batches_tracked', 'module.encoder.layer4.2.conv1.weight', 'module.encoder.layer4.2.bn1.weight', 'module.encoder.layer4.2.bn1.bias', 'module.encoder.layer4.2.bn1.running_mean', 'module.encoder.layer4.2.bn1.running_var', 'module.encoder.layer4.2.bn1.num_batches_tracked', 'module.encoder.layer4.2.conv2.weight', 'module.encoder.layer4.2.bn2.weight', 'module.encoder.layer4.2.bn2.bias', 'module.encoder.layer4.2.bn2.running_mean', 'module.encoder.layer4.2.bn2.running_var', 'module.encoder.layer4.2.bn2.num_batches_tracked', 'module.encoder.layer4.2.conv3.weight', 'module.encoder.layer4.2.bn3.weight', 'module.encoder.layer4.2.bn3.bias', 'module.encoder.layer4.2.bn3.running_mean', 'module.encoder.layer4.2.bn3.running_var', 'module.encoder.layer4.2.bn3.num_batches_tracked', 'module.head.0.weight', 'module.head.0.bias', 'module.head.2.weight', 'module.head.2.bias'])
-            # ckpt['model']['module.head.0.weight'].size()
-            # torch.Size([2048, 2048])
-            # ckpt['model']['module.head.2.weight'].size()
-            # torch.Size([128, 2048])
 
-            #     (avgpool): AdaptiveAvgPool2d(output_size=(1, 1))
-            #   )
-            #   (head): Sequential(
-            #     (0): Linear(in_features=2048, out_features=2048, bias=True)
-            #     (1): ReLU(inplace=True)
-            #     (2): Linear(in_features=2048, out_features=128, bias=True)
-            #     (3): Normalize()
-            #   )
-            #   (head_jig): JigsawHead(
-            #     (fc1): Sequential(
-            #       (0): Linear(in_features=2048, out_features=2048, bias=True)
-            #       (1): ReLU(inplace=True)
-            #       (2): Linear(in_features=2048, out_features=128, bias=True)
-            #     )
-            #     (fc2): Linear(in_features=1152, out_features=128, bias=True)
-            #     (l2norm): Normalize()
-            #   )
-            # )
             state_dict = ckpt['model']
             if args.modal == 'RGB':
                 # Unimodal (RGB) case
@@ -306,10 +268,8 @@ class LinearTrainer(BaseTrainer):
         data_time = AverageMeter()
         losses = AverageMeter()
         top1 = AverageMeter()
-        # top5 = AverageMeter()
 
         end = time.time()
-        # for idx, (input, target) in enumerate(train_loader):
         for idx, data in enumerate(train_loader):
             data_time.update(time.time() - end)
 
@@ -342,10 +302,8 @@ class LinearTrainer(BaseTrainer):
             loss = criterion(output, target)
 
             acc1 = accuracy(output, target, topk=(1,))
-            # acc1, acc5 = accuracy(output, target, topk=(1,))
             losses.update(loss.item(), input.size(0))
             top1.update(acc1[0].item(), input.size(0))
-            # top5.update(acc5[0], input.size(0))
 
             # backward
             optimizer.zero_grad()
@@ -381,7 +339,6 @@ class LinearTrainer(BaseTrainer):
         batch_time = AverageMeter()
         losses = AverageMeter()
         top1 = AverageMeter()
-        # top5 = AverageMeter()
 
         with torch.no_grad():
             end = time.time()
@@ -418,7 +375,6 @@ class LinearTrainer(BaseTrainer):
                 acc1 = accuracy(output, target, topk=(1,))
                 losses.update(loss.item(), input.size(0))
                 top1.update(acc1[0].item(), input.size(0))
-                # top5.update(acc5[0], input.size(0))
 
                 # measure elapsed time
                 batch_time.update(time.time() - end)
@@ -451,7 +407,6 @@ class LinearTrainer(BaseTrainer):
         data_time = AverageMeter()
         losses = AverageMeter()
         top1 = AverageMeter()
-        # top5 = AverageMeter()
 
         end = time.time()
         for idx, (input, target) in enumerate(train_loader):
@@ -467,10 +422,8 @@ class LinearTrainer(BaseTrainer):
             loss = criterion(output, target)
 
             acc1 = accuracy(output, target, topk=(1,))
-            # acc1, acc5 = accuracy(output, target, topk=(1,))
             losses.update(loss.item(), input.size(0))
             top1.update(acc1[0].item(), input.size(0))
-            # top5.update(acc5[0], input.size(0))
 
             # backward
             optimizer.zero_grad()
@@ -506,7 +459,6 @@ class LinearTrainer(BaseTrainer):
         batch_time = AverageMeter()
         losses = AverageMeter()
         top1 = AverageMeter()
-        # top5 = AverageMeter()
         infer_output = ['logit', 'true']
         accumulator = {metric: [] for metric in infer_output}
 
@@ -552,7 +504,6 @@ class LinearTrainer(BaseTrainer):
                 acc1 = accuracy(output, target, topk=(1,))
                 losses.update(loss.item(), input.size(0))
                 top1.update(acc1[0].item(), input.size(0))
-                # top5.update(acc5[0], input.size(0))
                 accumulator['logit'].extend([output.cpu().numpy()])
                 accumulator['true'].extend([target.cpu().numpy()])
 

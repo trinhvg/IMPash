@@ -1,14 +1,20 @@
-# torch
-# https://download.pytorch.org/whl/cu90/torch-0.4.0-cp35-cp35m-linux_x86_64.whl
-# https://download.pytorch.org/whl/cu100/torch-1.2.0-cp36-cp36m-manylinux1_x86_64.whl
-# torchvision
-# numpy
-# scipy
-# scikit-image
-# pillow
-# tensorboard_logger
-# matplotlib
-# seaborn
-# # git+https://github.com/pytorch/tnt.git@master
-# h5py
-# sklearn
+# Tested with Python 3.9.16; these are the versions the results were reproduced with.
+torch==2.5.1
+torchvision==0.20.1
+numpy==1.26.1
+pandas==2.0.1
+scikit-learn==1.3.2
+scikit-image==0.20.0
+umap-learn==0.5.4
+matplotlib==3.7.1
+opencv-python==4.6.0.66
+pillow==9.5.0
+albumentations==1.3.0
+termcolor==2.3.0
+tensorboard_logger==0.1.0
+tqdm==4.66.1
+histomicstk==1.2.8
+# stain normalisation (--colornorm): datasets/util*.py put a local TIAToolbox 1.2 checkout
+# (/data2/trinh/code/tool/tiatoolbox_1.2) first on sys.path; the env also has tiatoolbox==1.4.0
+tiatoolbox
+# optional: apex (only for --amp), rfconv (only for ResNeSt with rectified convolution)

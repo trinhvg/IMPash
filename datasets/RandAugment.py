@@ -169,19 +169,16 @@ def _randomly_negate(v):
 
 
 def _rotate_level_to_arg(level, _hparams):
-    # range [-30, 30]
     level = (level / _MAX_LEVEL) * 30.
     level = _randomly_negate(level)
     return level,
 
 
 def _enhance_level_to_arg(level, _hparams):
-    # range [0.1, 1.9]
     return (level / _MAX_LEVEL) * 1.8 + 0.1,
 
 
 def _shear_level_to_arg(level, _hparams):
-    # range [-0.3, 0.3]
     level = (level / _MAX_LEVEL) * 0.3
     level = _randomly_negate(level)
     return level,
@@ -195,7 +192,6 @@ def _translate_abs_level_to_arg(level, hparams):
 
 
 def _translate_rel_level_to_arg(level, _hparams):
-    # range [-0.45, 0.45]
     level = (level / _MAX_LEVEL) * 0.45
     level = _randomly_negate(level)
     return level,
@@ -220,12 +216,10 @@ def _posterize_tpu_level_to_arg(level, _hparams):
 
 
 def _solarize_level_to_arg(level, _hparams):
-    # range [0, 256]
     return int((level / _MAX_LEVEL) * 256),
 
 
 def _solarize_add_level_to_arg(level, _hparams):
-    # range [0, 110]
     return int((level / _MAX_LEVEL) * 110),
 
 

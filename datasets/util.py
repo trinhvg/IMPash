@@ -1,17 +1,18 @@
 from __future__ import print_function
 
-import os
 import sys
 import numpy as np
 import torch
 from PIL import Image, ImageFilter
 from skimage import color
-from torchvision import transforms, datasets
+from torchvision import transforms
 
 from .dataset import ImageFolderInstance, LinearInstance, LinearInstanceNorm, LinearInstanceColorAug
 from .histo_data import prepare_colon_class_data, prepare_colon_class_crc_data, prepare_colon_class_k19val_data,\
     prepare_colon_class_k19crcBalance_data, prepare_colon_class_data_from_json
 from .RandAugment import rand_augment_transform
+from .strong_augment import StrongAugment
+
 from model.transform import get_supervised_train_augmentation, get_supervised_val_augmentation
 
 import torch.nn as nn
@@ -19,13 +20,10 @@ import cv2
 from random import shuffle
 
 
-sys.path.insert(0, "/data1/trinh/code/tool/tiatoolbox/")
-from tiatoolbox.tools.stainnorm import VahadaneNormalizer, MacenkoNormalizer
+sys.path.insert(0, "/data2/trinh/code/tool/tiatoolbox_1.2/")
+from tiatoolbox.tools.stainnorm import MacenkoNormalizer
 
-# sys.path.insert(0, "/data1/trinh/code/tool/HistomicsTK/")
 from histomicstk.preprocessing.augmentation.color_augmentation import rgb_perturb_stain_concentration
-
-# from histomicstk.preprocessing.augmentation.color_augmentation import rgb_perturb_stain_concentration
 
 
 class StackTransform(object):
@@ -61,8 +59,49 @@ class JigsawCrop(object):
         crops = [Image.fromarray(crop) for crop in crops]
         return crops
 
+class MosaicJigsaw(object):
+    """Jigsaw style crop
+    1st setting n_grid=3, img_size=255, crop_size=64
+    2st setting n_grid=2, img_size=255, crop_size=56*2
+    3st setting n_grid=3, img_size=224, crop_size=64
 
-class PatchShuffling(object):
+    """
+    def __init__(self, n_grid=3, img_size=255, crop_size=64):
+        self.n_grid = n_grid
+        self.img_size = img_size
+        self.crop_size = crop_size
+        self.grid_size = int(img_size / self.n_grid)
+        self.side = self.grid_size - self.crop_size
+        self.out_size = self.crop_size*self.n_grid
+
+        yy, xx = np.meshgrid(np.arange(n_grid), np.arange(n_grid))
+        self.yy = np.reshape(yy * self.grid_size, (n_grid * n_grid,))
+        self.xx = np.reshape(xx * self.grid_size, (n_grid * n_grid,))
+
+        self.re_yy = np.reshape(yy * self.crop_size, (n_grid * n_grid,))
+        self.re_xx = np.reshape(xx * self.crop_size, (n_grid * n_grid,))
+
+    def __call__(self, img):
+        r_x = np.random.randint(0, self.side//2 + 1, self.n_grid * self.n_grid)
+        r_y = np.random.randint(0, self.side//2 + 1, self.n_grid * self.n_grid)
+        p_x = np.random.randint(self.crop_size, self.grid_size, self.n_grid * self.n_grid)
+        p_y = np.random.randint(self.crop_size, self.grid_size, self.n_grid * self.n_grid)
+        img = np.asarray(img, np.uint8)
+
+
+        rejig_img = np.zeros([self.crop_size*self.n_grid+self.side+1, self.crop_size*self.n_grid+self.side+1, 3], dtype='uint8')
+        crop_idx = list(range(self.n_grid * self.n_grid))
+        stitch_idx = list(range(self.n_grid * self.n_grid))
+        shuffle(crop_idx)
+        shuffle(stitch_idx)
+        for i, j in zip(crop_idx, stitch_idx):
+            crop = img[self.xx[i] + r_x[i]: self.xx[i] + r_x[i] + p_x[i], self.yy[i] + r_y[i]: self.yy[i] + r_y[i] + p_y[i], :]
+            rejig_img[self.re_xx[j]: self.re_xx[j] + crop.shape[0], self.re_yy[j]: self.re_yy[j] + crop.shape[1]] = crop
+        rejig_img = rejig_img[0:self.crop_size*self.n_grid, 0:self.crop_size*self.n_grid]
+        return Image.fromarray(rejig_img)
+
+
+class ResizeJigSaw(object):
     """Jigsaw style crop
     1st setting n_grid=3, img_size=255, crop_size=64
     2st setting n_grid=2, img_size=255, crop_size=56*2
@@ -84,6 +123,46 @@ class PatchShuffling(object):
         self.re_xx = np.reshape(xx * self.crop_size, (n_grid * n_grid,))
 
     def __call__(self, img):
+        r_x = np.random.randint(0, self.side//2 + 1, self.n_grid * self.n_grid)
+        r_y = np.random.randint(0, self.side//2 + 1, self.n_grid * self.n_grid)
+        p_s = np.random.randint(self.crop_size - self.side, self.grid_size, self.n_grid * self.n_grid)
+        img = np.asarray(img, np.uint8)
+        rejig_img = np.zeros([self.crop_size*self.n_grid, self.crop_size*self.n_grid, 3], dtype='uint8')
+
+        crop_idx = list(range(self.n_grid * self.n_grid))
+        stitch_idx = list(range(self.n_grid * self.n_grid))
+        shuffle(crop_idx)
+        for i, j in zip(crop_idx, stitch_idx):
+            p = img[self.xx[i] + r_x[i]: self.xx[i] + r_x[i] + p_s[i],
+                         self.yy[i] + r_y[i]: self.yy[i] + r_y[i] + p_s[i], :]
+            rejig_img[self.re_xx[j]: self.re_xx[j] + self.crop_size, self.re_yy[j]: self.re_yy[j] + self.crop_size] \
+                    = cv2.resize(p, (self.crop_size, self.crop_size))
+        return Image.fromarray(rejig_img)
+
+
+class AugJigStitch(object):
+    """Jigsaw style crop
+    1st setting n_grid=3, img_size=255, crop_size=64
+    2st setting n_grid=2, img_size=255, crop_size=56*2
+    3st setting n_grid=3, img_size=224, crop_size=64
+
+    """
+    def __init__(self, n_grid=3, img_size=255, crop_size=64, patch_aug=None):
+        self.n_grid = n_grid
+        self.img_size = img_size
+        self.crop_size = crop_size
+        self.patch_aug = patch_aug
+        self.grid_size = int(img_size / self.n_grid)
+        self.side = self.grid_size - self.crop_size
+
+        yy, xx = np.meshgrid(np.arange(n_grid), np.arange(n_grid))
+        self.yy = np.reshape(yy * self.grid_size, (n_grid * n_grid,))
+        self.xx = np.reshape(xx * self.grid_size, (n_grid * n_grid,))
+
+        self.re_yy = np.reshape(yy * self.crop_size, (n_grid * n_grid,))
+        self.re_xx = np.reshape(xx * self.crop_size, (n_grid * n_grid,))
+
+    def __call__(self, img):
         r_x = np.random.randint(0, self.side + 1, self.n_grid * self.n_grid)
         r_y = np.random.randint(0, self.side + 1, self.n_grid * self.n_grid)
         img = np.asarray(img, np.uint8)
@@ -93,12 +172,12 @@ class PatchShuffling(object):
                          self.yy[i] + r_y[i]: self.yy[i] + r_y[i] + self.crop_size, :])
         shuffle(crops)
 
-        shuffling_img = np.zeros([self.crop_size*self.n_grid, self.crop_size*self.n_grid, 3], dtype='uint8')
+        rejig_img = np.zeros([self.crop_size*self.n_grid, self.crop_size*self.n_grid, 3], dtype='uint8')
         for i in range(self.n_grid * self.n_grid):
-            shuffling_img[self.re_xx[i]: self.re_xx[i] + self.crop_size, self.re_yy[i]: self.re_yy[i] + self.crop_size] \
-                = crops[i]
+            rejig_img[self.re_xx[i]: self.re_xx[i] + self.crop_size, self.re_yy[i]: self.re_yy[i] + self.crop_size] \
+                = self.patch_aug(Image.fromarray(crops[i]))
 
-        return Image.fromarray(shuffling_img)
+        return Image.fromarray(rejig_img)
 
 
 class ReJigsawCrop(object):
@@ -316,7 +395,7 @@ class GaussianBlurBatch(object):
         return imgs
 
 
-def build_transforms(aug, modal, use_memory_bank=True, image_size=224):
+def build_transforms_informin(aug, modal, method, use_memory_bank=True, image_size=224):
     if use_memory_bank:
         # memory bank likes 0.08
         crop = 0.08
@@ -368,7 +447,6 @@ def build_transforms(aug, modal, use_memory_bank=True, image_size=224):
             translate_const=int(image_size * 0.45),
             img_mean=tuple([min(255, round(255 * x)) for x in rgb_mean]),
         )
-        # ccrop = transforms.CenterCrop(150)
 
         train_transform = transforms.Compose([
             transforms.RandomResizedCrop(image_size, scale=(crop, 1.)),
@@ -403,10 +481,6 @@ def build_transforms(aug, modal, use_memory_bank=True, image_size=224):
     else:
         raise NotImplementedError('transform not found: {}'.format(aug))
 
-    # if image_size ==224:
-    #     resize = transforms.RandomResizedCrop(image_size, scale=(crop, 1.))
-    # else:
-    #     resize = transforms.CenterCrop(150)
     if image_size != 224:
         train_transform = transforms.Compose([
             transforms.CenterCrop(150),
@@ -429,16 +503,205 @@ def build_transforms(aug, modal, use_memory_bank=True, image_size=224):
         ]))
     ])
 
+    if method == 'impash_mosaic':
+        jigstitch = MosaicJigsaw()
+    elif method == 'impash_resize':
+        jigstitch = ResizeJigSaw()
+    elif method in ['impash', 'InfoMin']:
+        jigstitch = ReJigsawCrop()
+    else:
+        raise f"Don't support jigstitch = {method}"
+
     jigstitch_transform = transforms.Compose([
         transforms.RandomResizedCrop(255, scale=(0.6, 1)),
         transforms.RandomHorizontalFlip(),
-        ReJigsawCrop(),
+        jigstitch,
         color_transfer,
         transforms.ToTensor(),
         normalize,
     ])
 
     return train_transform, norm_transforms, jigsaw_transform, jigstitch_transform
+
+
+def build_transforms(aug, modal, method, jigsaw_aug, use_memory_bank=True, image_size=224):
+    if use_memory_bank:
+        # memory bank likes 0.08
+        crop = 0.08
+    else:
+        # moco cache likes 0.2
+        crop = 0.2
+
+    if modal == 'RGB':
+        mean = [0.485, 0.456, 0.406]
+        std = [0.229, 0.224, 0.225]
+        color_transfer = RGB2RGB()
+    else:
+        mean = [0.457, -0.082, -0.052]
+        std = [0.500, 1.331, 1.333]
+        color_transfer = RGB2YDbDr()
+    normalize = transforms.Normalize(mean=mean, std=std)
+
+
+    if aug == 'A':
+        # used in InsDis, MoCo, PIRL
+        train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(image_size, scale=(crop, 1.)),
+            transforms.RandomHorizontalFlip(),
+            transforms.ColorJitter(0.4, 0.4, 0.4, 0.4),
+            transforms.RandomGrayscale(p=0.2),
+        ])
+    elif aug == 'B':
+        # used in MoCoV2
+        train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(image_size, scale=(crop, 1.)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomApply([
+                transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
+            ], p=0.8),
+            transforms.RandomGrayscale(p=0.2),
+            transforms.RandomApply([GaussianBlur2()], p=0.5),
+        ])
+    elif aug == 'C':
+        # used in CMC, CMCPIRL
+        train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(image_size, scale=(crop, 1.)),
+            transforms.RandomHorizontalFlip(),
+            transforms.ColorJitter(0.4, 0.4, 0.4, 0.1),
+        ])
+    elif aug == 'D':
+        # used in InfoMin
+        rgb_mean = (0.485, 0.456, 0.406)
+        ra_params = dict(
+            translate_const=int(image_size * 0.45),
+            img_mean=tuple([min(255, round(255 * x)) for x in rgb_mean]),
+        )
+
+        train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(image_size, scale=(crop, 1.)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomApply([
+                transforms.ColorJitter(0.8, 0.8, 0.8, 0.2)
+            ], p=0.8),
+            transforms.RandomApply([GaussianBlur(22)], p=0.5),
+            rand_augment_transform('rand-n{}-m{}-mstd0.5'.format(2, 10),
+                                   ra_params,
+                                   use_cmc=(modal == 'CMC')),
+            transforms.RandomGrayscale(p=0.2),
+        ])
+    elif aug == 'DS':
+        # used in InfoMin
+        rgb_mean = (0.485, 0.456, 0.406)
+        ra_params = dict(
+            translate_const=int(image_size * 0.45),
+            img_mean=tuple([min(255, round(255 * x)) for x in rgb_mean]),
+        )
+
+        train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(image_size, scale=(crop, 1.)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomApply([
+                transforms.ColorJitter(0.8, 0.8, 0.8, 0.2)
+            ], p=0.8),
+            transforms.RandomApply([GaussianBlur(22)], p=0.5),
+            rand_augment_transform('rand-n{}-m{}-mstd0.5'.format(2, 10),
+                                   ra_params,
+                                   use_cmc=(modal == 'CMC')),
+            transforms.RandomGrayscale(p=0.2),
+        ])
+        patch_transform = transforms.Compose([
+            transforms.RandomVerticalFlip(),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomApply([
+                transforms.ColorJitter(0.8, 0.8, 0.8, 0.2)
+            ], p=0.8),
+            transforms.RandomApply([GaussianBlur(22)], p=0.5),
+            rand_augment_transform('rand-n{}-m{}-mstd0.5'.format(2, 10),
+                                   ra_params,
+                                   use_cmc=(modal == 'CMC')),
+            transforms.RandomGrayscale(p=0.2),
+        ])
+    elif aug == 'S':
+        # used in strong_augment
+        train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(image_size, scale=(crop, 1.)),
+            transforms.RandomVerticalFlip(0.5),
+            transforms.RandomHorizontalFlip(0.5),
+            StrongAugment(operations=[2, 3, 4], probabilities=[0.5, 0.3, 0.2]),  # Just one line!
+        ])
+
+        patch_transform = transforms.Compose([
+            transforms.RandomVerticalFlip(0.5),
+            transforms.RandomHorizontalFlip(0.5),
+            StrongAugment(operations=[2, 3, 4], probabilities=[0.5, 0.3, 0.2]),  # Just one line!
+        ])
+    elif aug == 'E':
+        # used in CMCv2
+        rgb_mean = (0.485, 0.456, 0.406)
+        ra_params = dict(
+            translate_const=int(image_size * 0.45),
+            img_mean=tuple([min(255, round(255 * x)) for x in rgb_mean]),
+        )
+        train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(image_size, scale=(crop, 1.)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomApply([
+                transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
+            ], p=0.8),
+            transforms.RandomApply([GaussianBlur(22)], p=0.5),
+            rand_augment_transform('rand-n{}-m{}-mstd0.5'.format(2, 10),
+                                   ra_params,
+                                   use_cmc=(modal == 'CMC')),
+        ])
+    else:
+        raise NotImplementedError('transform not found: {}'.format(aug))
+
+    if image_size != 224:
+        train_transform = transforms.Compose([
+            transforms.CenterCrop(150),
+            train_transform
+        ])
+
+    norm_transforms = transforms.Compose([
+        color_transfer,
+        transforms.ToTensor(),
+        normalize,])
+
+    jigsaw_transform = transforms.Compose([
+        transforms.RandomResizedCrop(255, scale=(0.6, 1)),
+        transforms.RandomHorizontalFlip(),
+        JigsawCrop(),
+        StackTransform(transforms.Compose([
+            color_transfer,
+            transforms.ToTensor(),
+            normalize,
+        ]))
+    ])
+
+    if method == 'impash_mosaic':
+        jigstitch = MosaicJigsaw()
+    elif method == 'impash_resize':
+        jigstitch = ResizeJigSaw()
+    elif method == 'impash':
+        jigstitch = ReJigsawCrop()
+    elif method == 'strong_impash':
+        jigstitch = AugJigStitch(patch_aug=patch_transform)
+    elif method == 'aug_impash':
+        jigstitch = AugJigStitch(patch_aug=patch_transform)
+    else:
+        raise f"Don't support jigstitch = {method}"
+
+    jigstitch_transform = transforms.Compose([
+        transforms.RandomResizedCrop(255, scale=(0.6, 1)),
+        transforms.RandomHorizontalFlip(),
+        jigstitch,
+        color_transfer,
+        transforms.ToTensor(),
+        normalize,
+    ])
+
+    return train_transform, norm_transforms, jigsaw_transform, jigstitch_transform
+
 
 def get_jigsaw_transform():
     mean = [0.485, 0.456, 0.406]
@@ -471,10 +734,13 @@ def build_contrast_loader(opt, ngpus_per_node):
     batch_size = int(opt.batch_size / opt.world_size)
     num_workers = int((opt.num_workers + ngpus_per_node - 1) / ngpus_per_node)
 
-    train_transform, norm_transforms, jigsaw_transform, jigstitch_transform = \
-        build_transforms(aug, modal, use_memory_bank, opt.image_size)
+    if 'impash' in opt.method:
+        train_transform, norm_transforms, jigsaw_transform, jigstitch_transform = \
+        build_transforms(aug, modal, opt.method, opt.jigsaw_aug, use_memory_bank, opt.image_size)
+    else:
+        train_transform, norm_transforms, jigsaw_transform, jigstitch_transform = \
+        build_transforms_informin(aug, modal, opt.method, use_memory_bank, opt.image_size)
 
-    # train_dir = os.path.join(data_folder, 'train')
     if opt.dataset_name in ['k16', 'k19']:
         train_pairs, valid_pairs, test_pairs = prepare_colon_class_data_from_json(dataset_name=opt.dataset_name)
     elif opt.dataset_name == 'crc':
@@ -538,75 +804,11 @@ def build_contrast_loader(opt, ngpus_per_node):
 
 
 
-def build_contrast_loader_2(opt, ngpus_per_node):
-    """build loaders for contrastive training"""
-    data_folder = opt.data_folder
-    aug = opt.aug
-    modal = opt.modal
-    use_jigsaw = opt.jigsaw
-    use_memory_bank = (opt.mem == 'bank')
-    batch_size = int(opt.batch_size / opt.world_size)
-    num_workers = int((opt.num_workers + ngpus_per_node - 1) / ngpus_per_node)
-
-    train_transform, jigsaw_transform = \
-        build_transforms(aug, modal, use_memory_bank, opt.image_size)
-
-    # train_dir = os.path.join(data_folder, 'train')
-    if opt.dataset_name in ['k16', 'k19']:
-        train_pairs, valid_pairs, test_pairs = prepare_colon_class_data(dataset_name=opt.dataset_name)
-    elif opt.dataset_name == 'crc':
-        train_pairs, valid_pairs, test_pairs = prepare_colon_class_crc_data(dataset_name=opt.dataset_name)
-    elif opt.dataset_name == 'k19+crc':
-        train_pairs_k, valid_pairs_k, test_pairs_k = prepare_colon_class_data(dataset_name='k19')
-        train_pairs_c, valid_pairs_c, test_pairs_c = prepare_colon_class_crc_data(dataset_name='crc')
-        train_pairs = train_pairs_k + train_pairs_c
-        valid_pairs = valid_pairs_k + valid_pairs_c
-    elif opt.dataset_name == 'k19crcBalance':
-        train_pairs, valid_pairs, test_pairs = prepare_colon_class_k19crcBalance_data()
-    else:
-        f"Don't support dataset_name = {opt.dataset_name}"
-
-    if use_jigsaw:
-        train_dataset = ImageFolderInstance(
-            train_pairs, transform=train_transform,
-            two_crop=(not use_memory_bank),
-            jigsaw_transform=jigsaw_transform
-        )
-    else:
-        train_dataset = ImageFolderInstance(
-            train_pairs, transform=train_transform,
-            two_crop=(not use_memory_bank)
-        )
-
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-
-    #Note drop_last=True
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=(train_sampler is None),
-        num_workers=num_workers, pin_memory=True, sampler=train_sampler, drop_last=True)
-
-    print('train images: {}'.format(len(train_dataset)))
-
-    return train_dataset, train_loader, train_sampler
-
-
-
-
-from histomicstk.preprocessing.augmentation.color_augmentation import rgb_perturb_stain_concentration
-
 class Stain_Augment(object):
     def __call__(self, sample):
         sample = np.array(sample)
         rgbaug = rgb_perturb_stain_concentration(sample, sigma1=1., sigma2=1.)
         return rgbaug
-
-# class RGB2Lab(object):
-#     """Convert RGB PIL image to ndarray Lab."""
-#
-#     def __call__(self, img):
-#         img = np.asarray(img, np.uint8)
-#         img = color.rgb2lab(img)
-#         return img
 
 
 def build_linear_stain_aug_loader(opt, ngpus_per_node):
@@ -640,8 +842,6 @@ def build_linear_stain_aug_loader(opt, ngpus_per_node):
             img_mean=tuple([min(255, round(255 * x)) for x in rgb_mean]),
         )
         train_transform = transforms.Compose([
-            # stain_augment,
-            # transforms.ToPILImage(),
             transforms.RandomResizedCrop(opt.image_size, scale=(opt.crop, 1.)),
             transforms.RandomHorizontalFlip(),
             rand_augment_transform('rand-n{}-m{}-mstd0.5'.format(2, 10),
@@ -654,10 +854,6 @@ def build_linear_stain_aug_loader(opt, ngpus_per_node):
     else:
         raise NotImplementedError('aug not found: {}'.format(opt.aug_linear))
 
-    # dataset
-    # data_folder = opt.data_folder
-    # train_dir = os.path.join(data_folder, 'train')
-    # val_dir = os.path.join(data_folder, 'val')
     if opt.dataset_name in ['k16', 'k19']:
         train_pairs, valid_pairs, test_pairs = prepare_colon_class_data_from_json(dataset_name=opt.dataset_name)
     elif opt.dataset_name == 'crc':
@@ -674,18 +870,6 @@ def build_linear_stain_aug_loader(opt, ngpus_per_node):
 
     if opt.infer_only:
         valid_pairs = train_pairs + valid_pairs + test_pairs
-
-    # train_dataset = datasets.ImageFolder(train_pairs, train_transform)
-    # val_dataset = datasets.ImageFolder(
-    #     valid_pairs,
-    #     transforms.Compose([
-    #         transforms.Resize(256),
-    #         transforms.CenterCrop(224),
-    #         color_transfer,
-    #         transforms.ToTensor(),
-    #         normalize,
-    #     ])
-    # )
 
 
     train_dataset = LinearInstanceColorAug(
@@ -709,9 +893,6 @@ def build_linear_stain_aug_loader(opt, ngpus_per_node):
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=batch_size, shuffle=(train_sampler is None),
         num_workers=num_workers, pin_memory=True, sampler=train_sampler)
-    # val_loader = torch.utils.data.DataLoader(
-    #     val_dataset, batch_size=128, shuffle=False,
-    #     num_workers=32, pin_memory=True)
 
     val_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=opt.batch_size_infer, shuffle=False,
@@ -721,7 +902,6 @@ def build_linear_stain_aug_loader(opt, ngpus_per_node):
     print('test images: {}'.format(len(val_dataset)))
 
     return train_dataset, train_loader, val_loader, train_sampler
-
 
 
 def build_linear_loader(opt, ngpus_per_node):
@@ -761,25 +941,23 @@ def build_linear_loader(opt, ngpus_per_node):
             transforms.ToTensor(),
             normalize,
         ])
+    elif opt.aug_linear == 'strongAug':
+        train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(opt.image_size, scale=(opt.crop, 1.)),
+            transforms.RandomVerticalFlip(0.5),
+            transforms.RandomHorizontalFlip(0.5),
+            StrongAugment(operations=[2, 3, 4], probabilities=[0.5, 0.3, 0.2]),  # Just one line!
+            color_transfer,
+            transforms.ToTensor(),
+            normalize,
+        ])
     elif opt.aug_linear == 'SRA':
         train_transform = get_supervised_train_augmentation()
-        # train_transform = transforms.Compose([
-        # transforms.Resize(224),
-        # transforms.ToTensor(),
-        # # transforms.Normalize(mean=[0.742, 0.616, 0.731], std=[0.211, 0.274, 0.202]),
-        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    # ])
     else:
         raise NotImplementedError('aug not found: {}'.format(opt.aug_linear))
 
-    if opt.aug_linear == 'SRA':
+    if opt.aug_linear in ['SRA', 'strongAug']:
         val_transform = get_supervised_val_augmentation()
-    #     val_transform = transforms.Compose([
-    #     transforms.Resize(224),
-    #     transforms.ToTensor(),
-    #     # transforms.Normalize(mean=[0.742, 0.616, 0.731], std=[0.211, 0.274, 0.202]),
-    #     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    # ])
     else:
         val_transform = transforms.Compose([
             transforms.Resize(int(opt.image_size * 256 / 224)),
@@ -789,10 +967,6 @@ def build_linear_loader(opt, ngpus_per_node):
             normalize,
         ])
 
-    # dataset
-    # data_folder = opt.data_folder
-    # train_dir = os.path.join(data_folder, 'train')
-    # val_dir = os.path.join(data_folder, 'val')
     if opt.dataset_name in ['k16', 'k19']:
         train_pairs, valid_pairs, test_pairs = prepare_colon_class_data_from_json(dataset_name=opt.dataset_name)
     elif opt.dataset_name == 'crc':
@@ -810,17 +984,6 @@ def build_linear_loader(opt, ngpus_per_node):
     if opt.infer_only:
         valid_pairs = train_pairs + valid_pairs + test_pairs
 
-    # train_dataset = datasets.ImageFolder(train_pairs, train_transform)
-    # val_dataset = datasets.ImageFolder(
-    #     valid_pairs,
-    #     transforms.Compose([
-    #         transforms.Resize(256),
-    #         transforms.CenterCrop(224),
-    #         color_transfer,
-    #         transforms.ToTensor(),
-    #         normalize,
-    #     ])
-    # )
 
     if opt.jigsaw:
         jigsaw_transform = get_jigsaw_transform()
@@ -849,9 +1012,6 @@ def build_linear_loader(opt, ngpus_per_node):
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=batch_size, shuffle=(train_sampler is None),
         num_workers=num_workers, pin_memory=True, sampler=train_sampler)
-    # val_loader = torch.utils.data.DataLoader(
-    #     val_dataset, batch_size=128, shuffle=False,
-    #     num_workers=32, pin_memory=True)
 
     val_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=opt.batch_size_infer, shuffle=False,
@@ -902,12 +1062,6 @@ def build_test_loader(opt, ngpus_per_node):
         ])
     elif opt.aug_linear == 'SRA':
         train_transform = get_supervised_train_augmentation()
-        # train_transform = transforms.Compose([
-        # transforms.Resize(224),
-        # transforms.ToTensor(),
-        # # transforms.Normalize(mean=[0.742, 0.616, 0.731], std=[0.211, 0.274, 0.202]),
-        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    # ])
     else:
         raise NotImplementedError('aug not found: {}'.format(opt.aug_linear))
     if opt.image_size != 224:
@@ -916,10 +1070,6 @@ def build_test_loader(opt, ngpus_per_node):
             train_transform
         ])
 
-    # dataset
-    # data_folder = opt.data_folder
-    # train_dir = os.path.join(data_folder, 'train')
-    # val_dir = os.path.join(data_folder, 'val')
     if opt.dataset_name in ['k16', 'k19']:
         train_pairs, valid_pairs, test_pairs = prepare_colon_class_data(dataset_name=opt.dataset_name)
     elif opt.dataset_name == 'crc':
@@ -943,8 +1093,6 @@ def build_test_loader(opt, ngpus_per_node):
     else:
         f"Don't support dataset_name = {opt.dataset_name}"
 
-    # if opt.infer_only & ('val' not in opt.dataset_name):
-    #     valid_pairs = train_pairs + valid_pairs + test_pairs
 
     if opt.infer_only & ('val' not in opt.dataset_name):
         valid_pairs = train_pairs + valid_pairs + test_pairs
@@ -954,18 +1102,17 @@ def build_test_loader(opt, ngpus_per_node):
         print(target_color)
 
         if target_color == 'crc':
-            target_color_path = '/data1/trinh/data/raw_data/Domain_Invariance/colon_class/CRCTP/Training/Tumor/9.png'
+            target_color_path = '/data2/trinh/data/raw_data/Domain_Invariance/colon_class/CRC_TP/Training/Tumor/9.png'
         elif target_color == 'k19':
-            target_color_path = '/data1/trinh/data/raw_data/Domain_Invariance/colon_class/NCT-CRC-HE-100K/TUM/TUM-YYYRHCTW.tif'
+            target_color_path = '/data2/trinh/data/raw_data/Domain_Invariance/colon_class/NCT-CRC-HE-100K/TUM/TUM-YYYRHCTW.tif'
         elif target_color == 'k16':
-            target_color_path = '/data1/trinh/data/raw_data/Domain_Invariance/colon_class/Kather_texture_2016_image_tiles_5000/01_TUMOR/A8D0_CRC-Prim-HE-10_002c.tif_Row_1_Col_451.tif'
+            target_color_path = '/data2/trinh/data/raw_data/Domain_Invariance/colon_class/Kather_texture_2016_image_tiles_5000/01_TUMOR/A8D0_CRC-Prim-HE-10_002c.tif_Row_1_Col_451.tif'
         else:
             raise(" Invalid target color")
 
 
         target_image = cv2.imread(target_color_path)
         target_image = cv2.cvtColor(target_image, cv2.COLOR_BGR2RGB)
-        # norm = VahadaneNormalizer()
         norm = MacenkoNormalizer()
         norm.fit(target_image)
 
@@ -1002,9 +1149,6 @@ def build_test_loader(opt, ngpus_per_node):
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=batch_size, shuffle=(train_sampler is None),
         num_workers=num_workers, pin_memory=True, sampler=train_sampler)
-    # val_loader = torch.utils.data.DataLoader(
-    #     val_dataset, batch_size=128, shuffle=False,
-    #     num_workers=32, pin_memory=True)
 
     val_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=opt.batch_size_infer, shuffle=False,

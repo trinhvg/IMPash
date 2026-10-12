@@ -5,7 +5,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Conv2d, Module, Linear, BatchNorm2d, ReLU
+from torch.nn import Conv2d, Module, ReLU
 from torch.nn.modules.utils import _pair
 
 __all__ = ['SplAtConv2d']
@@ -96,7 +96,6 @@ class GlobalAvgPool2d(nn.Module):
 class Bottleneck(nn.Module):
     """ResNet Bottleneck
     """
-    # pylint: disable=unused-argument
     expansion = 4
 
     def __init__(self, inplanes, planes, stride=1, downsample=None,
@@ -215,7 +214,6 @@ class ResNet(nn.Module):
         - He, Kaiming, et al. "Deep residual learning for image recognition." Proceedings of the IEEE conference on computer vision and pattern recognition. 2016.
         - Yu, Fisher, and Vladlen Koltun. "Multi-scale context aggregation by dilated convolutions."
     """
-    # pylint: disable=unused-variable
     def __init__(self, block, layers, radix=1, groups=1, bottleneck_width=64,
                  num_classes=1000, dilated=False, dilation=1,
                  deep_stem=False, stem_width=64, avg_down=False,

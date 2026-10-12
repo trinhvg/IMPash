@@ -36,13 +36,10 @@ def accuracy(output, target, topk=(1,)):
         for k in topk:
             correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
-            # Note
-            # res.append(correct_k.mul_(100.0 / batch_size).item())
         return res
 
 
 def process_accumulated_output(output, batch_size, nr_classes):
-    #
     def uneven_seq_to_np(seq):
         item_count = batch_size * (len(seq) - 1) + len(seq[-1])
         cat_array = np.zeros((item_count,) + seq[0][0].shape, seq[0].dtype)
@@ -61,7 +58,6 @@ def process_accumulated_output(output, batch_size, nr_classes):
     logit = uneven_seq_to_np(output['logit'])
 
     pred = np.argmax(logit, axis=-1)
-    # pred_c = [covert_dict[pred_c[idx]] for idx in range(len(pred_c))]
     acc = np.mean(pred == true)
     print('acc', acc)
     # print(classification_report(true, pred_c, labels=[0, 1, 2, 3]))

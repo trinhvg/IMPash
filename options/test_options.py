@@ -12,7 +12,7 @@ class TestOptions(BaseOptions):
         parser.add_argument('--ckpt_class', type=str, default=None,
                             help='the checkpoint to test')
         parser.add_argument('--aug_linear', type=str, default='NULL',
-                            choices=['NULL', 'SRA', 'RA'],
+                            choices=['NULL', 'SRA', 'RA', 'strongAug'],
                             help='linear evaluation augmentation')
         parser.add_argument('--crop', type=float, default=0.2,
                             help='crop threshold for RandomResizedCrop')
@@ -31,13 +31,11 @@ class TestOptions(BaseOptions):
                             help='using mixed precision')
         parser.add_argument('--ema_feat', action='store_true',
                             help='using ema feature')
-        #
-        # parser.set_defaults(epochs=60)
-        # parser.set_defaults(learning_rate=30)
+        parser.add_argument('--fig_name', type=int,
+                            help='figure index used by main_umap_impash.py')
 
         parser.set_defaults(epochs=60)
         parser.set_defaults(learning_rate=30)
-        # parser.set_defaults(learning_rate=1e-3)
         parser.set_defaults(lr_decay_epochs='30,40,50')
         parser.set_defaults(lr_decay_rate=0.2)
         parser.set_defaults(weight_decay=0)
@@ -45,13 +43,8 @@ class TestOptions(BaseOptions):
         return parser
 
 
-
     def modify_options(self, opt):
         opt = self.override_options(opt)
-        # if opt.dataset_name in ['k19', 'k16', 'crc']:
-        #     opt.n_class = 7
-        # elif opt.dataset_name in ['crc']:
-        #     opt.n_class = 5
 
         iterations = opt.lr_decay_epochs.split(',')
         opt.lr_decay_epochs = list([])
@@ -64,7 +57,6 @@ class TestOptions(BaseOptions):
         elif opt.ckpt_class:
             opt.model_name = opt.ckpt_class.split('/')[-2]
         else:
-            # print('warning: no pre-trained model!')
             print('warning: no unsupervised pre-trained model!')
             if opt.preImageNet:
                 opt.model_name = '{}_ImageNet'.format(opt.dataset_name)
@@ -94,15 +86,12 @@ class TestOptions(BaseOptions):
             opt.model_name = opt.model_name.replace('_linear_', '_finetune_')
 
 
-
         # create folders
         opt.model_folder = os.path.join(opt.model_path, opt.model_name)
-        # self.check_log_dir(opt.model_folder)
         if not os.path.isdir(opt.model_folder):
             os.makedirs(opt.model_folder)
 
         opt.tb_folder = os.path.join(opt.tb_path, opt.model_name)
-        # self.check_log_dir(opt.tb_folder)
 
         if not os.path.isdir(opt.tb_folder):
             os.makedirs(opt.tb_folder)

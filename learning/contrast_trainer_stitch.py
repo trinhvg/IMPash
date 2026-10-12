@@ -4,7 +4,6 @@ import os
 import sys
 import time
 
-import matplotlib.pyplot as plt
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -13,7 +12,7 @@ from .util import AverageMeter, accuracy
 from .base_trainer import BaseTrainer
 
 try:
-    from apex import amp, optimizers
+    from apex import amp
 except ImportError:
     pass
 
@@ -179,20 +178,10 @@ class ContrastTrainer(BaseTrainer):
         args = self.args
         local_gp = self.local_group
         bsz = x.size(0)
-        # print('x_jig_input' ,x_jig.shape)
 
         _, c, h, w = x_jig.size()
         x_jig = x_jig.view(bsz, 9, c, h, w)
 
-        # # gather x locally for each node
-        # node_x = [torch.ones_like(x) for _ in range(dist.get_world_size(local_gp))]
-        # dist.all_gather(node_x, x.contiguous(), group=local_gp, async_op=False)
-        # node_x = torch.cat(node_x, dim=0)
-        #
-        # # gather x_jig locally for each node
-        # node_x = [torch.ones_like(x) for _ in range(dist.get_world_size(local_gp))]
-        # dist.all_gather(node_x, x.contiguous(), group=local_gp, async_op=False)
-        # node_x = torch.cat(node_x, dim=0)
 
         node_x = self._gather_x(x, local_gp)
         node_x_jig = self._gather_x(x_jig, local_gp)
@@ -209,7 +198,6 @@ class ContrastTrainer(BaseTrainer):
             this_x_jig = node_x_jig[this_ids]
 
             this_x_jig = this_x_jig.view(bsz * 9, c, h, w)
-            # print(this_x_jig.shape)
             if args.jigsaw_ema:
                 k, k_jig = model_ema(this_x, x_jig=this_x_jig, mode=0)
             if args.jigsaw:
@@ -245,20 +233,7 @@ class ContrastTrainer(BaseTrainer):
         args = self.args
         local_gp = self.local_group
         bsz = x.size(0)
-        # print('x_jig_input' ,x_jig.shape)
 
-        # _, c, h, w = x_jig.size()
-        # x_jig = x_jig.view(bsz, 9, c, h, w)
-
-        # # gather x locally for each node
-        # node_x = [torch.ones_like(x) for _ in range(dist.get_world_size(local_gp))]
-        # dist.all_gather(node_x, x.contiguous(), group=local_gp, async_op=False)
-        # node_x = torch.cat(node_x, dim=0)
-        #
-        # # gather x_jig locally for each node
-        # node_x = [torch.ones_like(x) for _ in range(dist.get_world_size(local_gp))]
-        # dist.all_gather(node_x, x.contiguous(), group=local_gp, async_op=False)
-        # node_x = torch.cat(node_x, dim=0)
 
         node_x = self._gather_x(x, local_gp)
         node_x_jig = self._gather_x(x_jig, local_gp)
@@ -274,7 +249,6 @@ class ContrastTrainer(BaseTrainer):
             this_x = node_x[this_ids]
             this_x_jig = node_x_jig[this_ids]
 
-            # print(this_x_jig.shape)
             if args.jigsaw_ema:
                 k, k_jig = model_ema(this_x, x_jig=this_x_jig, mode=0)
             if args.jigsaw:
@@ -359,7 +333,6 @@ class ContrastTrainer(BaseTrainer):
             return acc1[0]
 
         accuracies = [acc(logit, target) for logit in logits]
-        # [tensor([100.], device='cuda:0')]
 
         return losses, accuracies
 
@@ -405,18 +378,12 @@ class ContrastTrainer(BaseTrainer):
                 # shuffle BN for momentum encoder
                 k, all_k = self._shuffle_bn(x2, model_ema)
 
-            # print(k.shape, all_k.shape)
-            # torch.Size([128, 128]), torch.Size([256, 128])
-
 
             # loss and metrics
             if args.jigsaw_ema:
                 if args.jigsaw_stitch:
                     inputs_jig = data[2].float().cuda(args.gpu, non_blocking=True)
                     x_j1, x_j2 = torch.split(inputs_jig, [3, 3], dim=1)
-                    # bsz, m, c, h, w = x_j1.shape
-                    # x_j1 = x_j1.reshape(bsz * m, c, h, w)
-                    # x_j2 = x_j2.reshape(bsz * m, c, h, w)
                     q, q_jig = model(x1, x_j1)
                     # shuffle BN for momentum encoder
                     k, all_k, k_jig, all_k_jig = self._shuffle_bn_jigstitch(x=x2, x_jig=x_j2, model_ema=model_ema)
@@ -438,15 +405,6 @@ class ContrastTrainer(BaseTrainer):
                     bsz, m, c, h, w = x_j1.shape
                     x_j1 = x_j1.reshape(bsz * m, c, h, w)
                     x_j2 = x_j2.reshape(bsz * m, c, h, w)
-
-                    # fig = plt.figure(figsize=(8, 8))
-                    # columns = 3
-                    # rows = 3
-                    # for i in range(1, columns * rows + 1):
-                    #     img = x_j2[i + 8, :].cpu().numpy().transpose(1, 2, 0)
-                    #     fig.add_subplot(rows, columns, i)
-                    #     plt.imshow(img)
-                    # plt.show()
 
                     q, q_jig = model(x1, x_j1)
 
@@ -487,8 +445,6 @@ class ContrastTrainer(BaseTrainer):
 
             elif args.jigsaw_stitch:
                 inputs_jig = data[2].float().cuda(args.gpu, non_blocking=True)
-                # bsz, m, c, h, w = inputs_jig.shape
-                # inputs_jig = inputs_jig.view(bsz * m, c, h, w)
                 q, q_jig = model(x1, inputs_jig)
                 output = contrast(q, k, q_jig, all_k)
                 losses, accuracies = self._compute_loss_accuracy(

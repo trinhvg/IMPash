@@ -1,11 +1,11 @@
 """
-DDP training for Contrastive Learning
+IMPaSh self-supervised pre-training (DDP).
+
+The paper encoder uses:
+    --method InfoMin --jigsaw_stitch --jigsaw_ema --jig_version V0 --cosine
+See README.md ("IMPaSh configuration") for the full resolved config.
 """
 from __future__ import print_function
-# import os
-import os
-os.environ["CUDA_VISIBLE_DEVICES"]="4,5"
-# print(os.environ)
 
 import torch
 import torch.nn as nn
@@ -17,6 +17,11 @@ from learning.contrast_trainer_stitch import ContrastTrainer
 from networks.build_backbone import build_model
 from datasets.util import build_contrast_loader
 from memory.build_memory import build_mem
+
+
+# share DataLoader batches through files in /dev/shm instead of passing file descriptors;
+# the default 'file_descriptor' strategy intermittently fails with 'Bad file descriptor' on this server
+mp.set_sharing_strategy('file_system')
 
 
 def main():
@@ -38,17 +43,14 @@ def main_worker(gpu, ngpus_per_node, args):
     trainer = ContrastTrainer(args)
     trainer.init_ddp_environment(gpu, ngpus_per_node)
 
-    # build model
+    # build model: encoder g + projectors p1 (InfoMin) / p2 (PatchShuffling), and its momentum copy
     model, model_ema = build_model(args)
 
     # build dataset
     train_dataset, train_loader, train_sampler = \
         build_contrast_loader(args, ngpus_per_node)
 
-    # show_augment(train_dataset, 0)
-
-
-    # build memory
+    # build memory: two momentum queues (k1, k2) when --jigsaw_ema
     contrast = build_mem(args, len(train_dataset))
     contrast.cuda()
 
@@ -64,7 +66,6 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # optional step: synchronize memory
     trainer.broadcast_memory(contrast)
-    print(contrast.memory.shape)
 
     # check and resume a model
     start_epoch = trainer.resume_model(model, model_ema, contrast, optimizer)
@@ -79,7 +80,7 @@ def main_worker(gpu, ngpus_per_node, args):
         outs = trainer.train(epoch, train_loader, model, model_ema,
                              contrast, criterion, optimizer)
 
-        # log to tensorbard
+        # log to tensorboard
         trainer.logging(epoch, outs, optimizer.param_groups[0]['lr'])
 
         # save model
@@ -88,11 +89,3 @@ def main_worker(gpu, ngpus_per_node, args):
 
 if __name__ == '__main__':
     main()
-
-# python main_contrast.py \
-#   --method CMC \
-#   --cosine \
-#   --data_folder /path/to/data \
-#   --multiprocessing-distributed --world-size 1 --rank 0 \
-
-# --method CMC --cosine --data_folder /path/to/data --multiprocessing-distributed --world-size 1 --rank 0
